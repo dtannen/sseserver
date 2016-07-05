@@ -1,10 +1,14 @@
 package sseserver
 
 import (
-	"github.com/GeertJohan/go.rice"
-	. "github.com/azer/debug"
 	"log"
 	"net/http"
+	"os"
+	"time"
+
+	"github.com/GeertJohan/go.rice"
+	. "github.com/azer/debug"
+	"github.com/garyburd/redigo/redis"
 )
 
 // Interface to a SSE server.
@@ -43,11 +47,21 @@ func NewServer() *Server {
 // http.ListenAndServe()
 func (s *Server) Serve(addr string) {
 
+	// get redis pool
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	if redisHost == "" {
+		redisHost = "localhost:6379"
+	}
+	if redisPassword == "" {
+		redisPassword = ""
+	}
+	pool := newPool(redisHost, redisPassword)
 	// set up routes.
 	// use an anonymous function for closure in order to pass value to handler
 	// https://groups.google.com/forum/#!topic/golang-nuts/SGn1gd290zI
 	http.HandleFunc("/subscribe/", func(w http.ResponseWriter, r *http.Request) {
-		sseHandler(w, r, s.hub)
+		sseHandler(w, r, s.hub, pool)
 	})
 
 	http.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
@@ -79,5 +93,29 @@ func (s *Server) Serve(addr string) {
 	Debug("Starting server on addr " + addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
+	}
+}
+
+func newPool(host, password string) *redis.Pool {
+	return &redis.Pool{
+		MaxIdle:     2,
+		MaxActive:   5,
+		IdleTimeout: 5 * time.Second,
+		Wait:        true,
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", host)
+			if err != nil {
+				log.Println(err)
+				return nil, err
+			}
+			if password != "" {
+				if _, err := c.Do("AUTH", password); err != nil {
+					log.Println(err)
+					c.Close()
+					return nil, err
+				}
+			}
+			return c, err
+		},
 	}
 }

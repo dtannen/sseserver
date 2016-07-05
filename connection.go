@@ -1,10 +1,13 @@
 package sseserver
 
 import (
-	. "github.com/azer/debug"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
+
+	. "github.com/azer/debug"
+	"github.com/garyburd/redigo/redis"
 )
 
 type connection struct {
@@ -58,7 +61,28 @@ func (c *connection) writer() {
 	}
 }
 
-func sseHandler(w http.ResponseWriter, r *http.Request, h *hub) {
+func InvalidAuth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Connection", "close")
+	w.Write([]byte(fmt.Sprintf("data:%s\n\n", "invalid auth")))
+	r.Body.Close()
+}
+
+func sseHandler(w http.ResponseWriter, r *http.Request, h *hub, pool *redis.Pool) {
+	// TODO: check auth token to ensure client is capable of connecting
+
+	auth_token := r.Header.Get("X-Authorization")
+	if auth_token == "" {
+		InvalidAuth(w, r)
+		return
+	} else {
+		conn := pool.Get()
+		token, err := redis.String(conn.Do("GET", "laravel:api_keys:"+auth_token))
+		conn.Close()
+		if err != nil || token == "" {
+			InvalidAuth(w, r)
+			return
+		}
+	}
 	namespace := r.URL.Path[10:] // strip out the prepending "/subscribe"
 	// TODO: we should do the above in a clever way so we work on any path
 
@@ -79,7 +103,7 @@ func sseHandler(w http.ResponseWriter, r *http.Request, h *hub) {
 	headers.Set("Content-Type", "text/event-stream; charset=utf-8")
 	headers.Set("Cache-Control", "no-cache")
 	headers.Set("Connection", "keep-alive")
-	headers.Set("Server", "emojitrack-gostreamer")
+	headers.Set("Server", "pinion-gostreamer")
 
 	c := &connection{
 		send:      make(chan []byte, 256),
