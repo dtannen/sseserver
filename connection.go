@@ -62,9 +62,11 @@ func (c *connection) writer() {
 }
 
 func InvalidAuth(w http.ResponseWriter, r *http.Request) {
+	r.Body.Close()
+	r.ProtoMajor = 1
+	r.ProtoMinor = 0
 	w.Header().Set("Connection", "close")
 	w.Write([]byte(fmt.Sprintf("data:%s\n\n", "invalid auth")))
-	r.Body.Close()
 }
 
 func sseHandler(w http.ResponseWriter, r *http.Request, h *hub, pool *redis.Pool) {

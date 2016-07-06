@@ -1,9 +1,11 @@
 package sseserver
 
 import (
-	. "github.com/azer/debug"
+	"fmt"
 	"strings"
 	"time"
+
+	. "github.com/azer/debug"
 )
 
 // A connection hub keeps track of all the active client connections, and
@@ -49,15 +51,11 @@ func (h *hub) run() {
 						Debug("cant pass to a connection send chan, buffer is full -- kill it with fire")
 						delete(h.connections, c)
 						close(c.send)
-						// go c.ws.Close()
-						/* TODO: figure out what to do here...
-						we are already closing the send channel, in *theory* shouldn't the
-						connection clean up? I guess possible it doesnt if its deadlocked or
-						something... is it?
-
-						we want to make sure to always close the HTTP connection though,
-						so server can never fill up max num of open sockets.
-						*/
+						c.r.Body.Close()
+						c.r.ProtoMajor = 1
+						c.r.ProtoMinor = 0
+						c.w.Header().Set("Connection", "close")
+						c.w.Write([]byte(fmt.Sprintf("data:%s\n\n", "closing connection")))
 					}
 				}
 			}
