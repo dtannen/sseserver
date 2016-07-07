@@ -50,9 +50,14 @@ func (s *Server) Serve(addr string) {
 	// get redis pool
 	redisHost := os.Getenv("REDIS_HOST")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
-	if redisHost == "" {
-		redisHost = "localhost:6379"
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
 	}
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisHost = redisHost + ":" + redisPort
 	if redisPassword == "" {
 		redisPassword = ""
 	}
