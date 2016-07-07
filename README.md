@@ -20,6 +20,9 @@ handled dispatching hundreds of messages per second to thousands of clients
 simultaneously, on a single Heroku dyno. (The previous NodeJS solution required
 dozens of dynos to handle the same load.)
 
+Authentication
+----------------------
+Authentication token can be passed in as X-Authorization: xxx in the header or as ?token=xxx when making a subscribe request
 
 Why SSE vs Websockets?
 ----------------------

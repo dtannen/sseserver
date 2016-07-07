@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/azer/debug"
@@ -70,9 +71,21 @@ func InvalidAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func sseHandler(w http.ResponseWriter, r *http.Request, h *hub, pool *redis.Pool) {
-	// TODO: check auth token to ensure client is capable of connecting
-
+	namespace := r.URL.Path[10:] // strip out the prepending "/subscribe"
+	// TODO: we should do the above in a clever way so we work on any path
+	// check header for query string
 	auth_token := r.Header.Get("X-Authorization")
+	// if still empty then try to parse from query string
+	if auth_token == "" {
+		// parse query string if exists
+		if err := r.ParseForm(); err != nil {
+			InvalidAuth(w, r)
+			return
+		}
+		auth_token = r.Form.Get("token")
+		// strip query string from namespace
+		namespace = strings.Split(namespace, "?")[0]
+	}
 	if auth_token == "" {
 		InvalidAuth(w, r)
 		return
@@ -85,8 +98,6 @@ func sseHandler(w http.ResponseWriter, r *http.Request, h *hub, pool *redis.Pool
 			return
 		}
 	}
-	namespace := r.URL.Path[10:] // strip out the prepending "/subscribe"
-	// TODO: we should do the above in a clever way so we work on any path
 
 	// override RemoteAddr to trust proxy IP msgs if they exist
 	// pattern taken from http://git.io/xDD3Mw
