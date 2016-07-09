@@ -94,10 +94,19 @@ func (s *Server) Serve(addr string) {
 		adminStatusDataHandler(w, r, s.hub)
 	})
 
-	// actually start the HTTP server
-	Debug("Starting server on addr " + addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatal("ListenAndServe:", err)
+	secure := os.Getenv("secure")
+	if secure == "" {
+		// actually start the HTTP server
+		Debug("Starting server on addr " + addr)
+		if err := http.ListenAndServe(addr, nil); err != nil {
+			log.Fatal("ListenAndServe:", err)
+		}
+	} else {
+		// actually start the HTTPs server
+		Debug("Starting server on addr " + addr)
+		if err := http.ListenAndServeTLS(addr, "/etc/letsencrypt/live/sse.pinion.site/cert.pem", "/etc/letsencrypt/live/sse.pinion.site/privkey.pem", nil); err != nil {
+			log.Fatal("ListenAndServe:", err)
+		}
 	}
 }
 
